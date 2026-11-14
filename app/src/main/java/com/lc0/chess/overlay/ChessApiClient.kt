@@ -1,8 +1,5 @@
 package com.lc0.chess.overlay
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -27,31 +24,12 @@ sealed class ApiResult {
 
 object ChessApiClient {
 
-    private fun getClient(context: Context? = null): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .connectTimeout(8, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-
-        // Обход VPN: принудительно направляем запросы напрямую через Wi-Fi чип (wlan0)
-        // даже если на телефоне активен VPN для Chess.com
-        if (context != null) {
-            try {
-                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-                val wifiNetwork = cm?.allNetworks?.firstOrNull { net ->
-                    val caps = cm.getNetworkCapabilities(net)
-                    caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                }
-                if (wifiNetwork != null) {
-                    builder.socketFactory(wifiNetwork.socketFactory)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        return builder.build()
-    }
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
 
     private fun formatUrl(serverUrl: String, path: String): String {
         val clean = serverUrl.trim()
@@ -63,11 +41,11 @@ object ChessApiClient {
         return "$base$cleanPath"
     }
 
-    suspend fun testConnection(context: Context? = null, serverUrl: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun testConnection(serverUrl: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val url = formatUrl(serverUrl, "/mode")
             val request = Request.Builder().url(url).build()
-            getClient(context).newCall(request).execute().use { response ->
+            client.newCall(request).execute().use { response ->
                 response.isSuccessful
             }
         } catch (e: Exception) {
@@ -75,13 +53,13 @@ object ChessApiClient {
         }
     }
 
-    suspend fun getMoveByFen(context: Context? = null, serverUrl: String, fen: String): MoveResult? = withContext(Dispatchers.IO) {
+    suspend fun getMoveByFen(serverUrl: String, fen: String): MoveResult? = withContext(Dispatchers.IO) {
         try {
             val encodedFen = URLEncoder.encode(fen, "UTF-8")
             val url = formatUrl(serverUrl, "/move?fen=$encodedFen")
             val request = Request.Builder().url(url).build()
 
-            getClient(context).newCall(request).execute().use { response ->
+            client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val body = response.body?.string() ?: return@withContext null
                 val json = JSONObject(body)
@@ -103,7 +81,6 @@ object ChessApiClient {
     }
 
     suspend fun analyzeSnapshot(
-        context: Context? = null,
         serverUrl: String,
         jpegBytes: ByteArray,
         color: String = "w"
@@ -118,11 +95,11 @@ object ChessApiClient {
                 .post(requestBody)
                 .build()
 
-            getClient(context).newCall(request).execute().use { response ->
+            client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     return@withContext ApiResult.Error("HTTP ${response.code}")
                 }
-                val body = response.body?.string() ?: return@withContext ApiResult.Error("Пустой ответ от сервера")
+                val body = response.body?.string() ?: return@withContext ApiResult.Error("Пустой ответ")
                 val json = JSONObject(body)
 
                 if (json.has("error")) {

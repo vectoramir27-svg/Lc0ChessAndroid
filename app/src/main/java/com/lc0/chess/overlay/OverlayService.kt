@@ -240,7 +240,7 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
             }
 
             val colorCode = if (isPlayingWhite) "w" else "b"
-            when (val apiResult = ChessApiClient.analyzeSnapshot(this@OverlayService, serverUrl, bytes, colorCode)) {
+            when (val apiResult = ChessApiClient.analyzeSnapshot(serverUrl, bytes, colorCode)) {
                 is ApiResult.Success -> {
                     val move = apiResult.move
                     tvMove?.text = "${move.from}➔${move.to} (${move.eval})"
@@ -251,8 +251,14 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
                     }
                 }
                 is ApiResult.Error -> {
-                    tvMove?.text = "Ошибка"
-                    Toast.makeText(this@OverlayService, "Связь: ${apiResult.message}", Toast.LENGTH_LONG).show()
+                    val shortErr = when {
+                        apiResult.message.contains("Failed to connect", true) -> "Нет связи"
+                        apiResult.message.contains("timeout", true) -> "Таймаут"
+                        apiResult.message.contains("unreachable", true) -> "Недоступен"
+                        else -> apiResult.message.take(12)
+                    }
+                    tvMove?.text = shortErr
+                    Toast.makeText(this@OverlayService, "Сервер: ${apiResult.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

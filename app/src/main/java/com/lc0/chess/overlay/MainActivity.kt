@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             tvServerStatus.setTextColor(Color.parseColor("#8C96A8"))
 
             lifecycleScope.launch {
-                val ok = ChessApiClient.testConnection(this@MainActivity, host)
+                val ok = ChessApiClient.testConnection(host)
                 if (ok) {
                     tvServerStatus.text = "● Связь с RTX 5060 установлена!"
                     tvServerStatus.setTextColor(Color.parseColor("#00FF88"))
