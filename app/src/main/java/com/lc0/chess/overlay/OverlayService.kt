@@ -38,7 +38,7 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
     private val captureManager = ScreenCaptureManager()
     private val scope = CoroutineScope(Dispatchers.Main + Job())
 
-    private var serverUrl: String = "http://192.168.1.108:8765"
+    private var serverUrl: String = "http://192.168.1.109:8765"
     private var tts: TextToSpeech? = null
     private var isPlayingWhite: Boolean = true
 

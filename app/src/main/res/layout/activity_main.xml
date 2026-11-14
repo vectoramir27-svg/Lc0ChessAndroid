@@ -64,7 +64,7 @@
                     android:id="@+id/etServerIp"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:text="192.168.1.108:8765"
+                    android:text="192.168.1.109:8765"
                     android:textColor="@color/accent_green"
                     android:textSize="15sp"
                     android:textStyle="bold"
