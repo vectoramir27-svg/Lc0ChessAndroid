@@ -57,9 +57,15 @@ class MainActivity : AppCompatActivity() {
         tvOverlayGranted = findViewById(R.id.tvOverlayGranted)
         btnStartOverlay = findViewById(R.id.btnStartOverlay)
 
-        // Автоматически загружаем последний сохраненный IP или по умолчанию 192.168.1.109:8765
-        val savedIp = prefs.getString("server_ip", "192.168.1.109:8765") ?: "192.168.1.109:8765"
-        etServerIp.setText(savedIp)
+        // Автоматически подставляем 192.168.1.109:8765 (принудительно сбрасываем старый .108)
+        val savedIp = prefs.getString("server_ip", "192.168.1.109:8765")
+        val ipToUse = if (savedIp == null || savedIp == "192.168.1.108:8765" || savedIp.contains(".108")) {
+            "192.168.1.109:8765"
+        } else {
+            savedIp
+        }
+        prefs.edit().putString("server_ip", ipToUse).apply()
+        etServerIp.setText(ipToUse)
 
         // Автоматически сохраняем при любом изменении пользователем
         etServerIp.addTextChangedListener(object : TextWatcher {
@@ -94,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             tvServerStatus.setTextColor(Color.parseColor("#8C96A8"))
 
             lifecycleScope.launch {
-                val ok = ChessApiClient.testConnection(host)
+                val ok = ChessApiClient.testConnection(this@MainActivity, host)
                 if (ok) {
                     tvServerStatus.text = "● Связь с RTX 5060 установлена!"
                     tvServerStatus.setTextColor(Color.parseColor("#00FF88"))
