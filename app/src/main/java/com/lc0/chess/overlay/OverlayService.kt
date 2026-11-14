@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -12,6 +13,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.view.*
 import android.widget.Button
@@ -69,31 +71,55 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Lc0 Chess Assistant активен")
             .setContentText("Стрелки отображаются поверх Chess.com")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_launcher)
+            .setOngoing(true)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        // В Android 14+ тип mediaProjection ОБЯЗАТЕЛЕН в startForeground
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
-        serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "http://192.168.1.108:8765"
+        serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "http://192.168.1.109:8765"
 
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED) ?: Activity.RESULT_CANCELED
         val resultData = intent?.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
 
         if (resultCode == Activity.RESULT_OK && resultData != null) {
-            val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            val projection: MediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
-
-            val metrics = resources.displayMetrics
-            captureManager.start(projection, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+            try {
+                val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                val projection: MediaProjection? = projectionManager.getMediaProjection(resultCode, resultData)
+                if (projection != null) {
+                    val metrics = resources.displayMetrics
+                    captureManager.start(projection, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
-        setupOverlayViews()
+        try {
+            setupOverlayViews()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         return START_NOT_STICKY
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupOverlayViews() {
         if (canvasView != null) return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Требуется разрешение на показ поверх окон!", Toast.LENGTH_LONG).show()
+            return
+        }
 
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -109,12 +135,16 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         )
 
         canvasView = OverlayCanvasView(this)
-        windowManager.addView(canvasView, canvasParams)
+        try {
+            windowManager.addView(canvasView, canvasParams)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // 2. Плавающий компактный виджет с кнопками
         val controlsParams = WindowManager.LayoutParams(
@@ -126,7 +156,7 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 40
-            y = 120
+            y = 140
         }
 
         val inflater = LayoutInflater.from(this)
@@ -171,14 +201,20 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
                 MotionEvent.ACTION_MOVE -> {
                     controlsParams.x = initialX + (event.rawX - touchX).toInt()
                     controlsParams.y = initialY + (event.rawY - touchY).toInt()
-                    windowManager.updateViewLayout(controlsView, controlsParams)
+                    try {
+                        windowManager.updateViewLayout(controlsView, controlsParams)
+                    } catch (e: Exception) {}
                     true
                 }
                 else -> false
             }
         }
 
-        windowManager.addView(controlsView, controlsParams)
+        try {
+            windowManager.addView(controlsView, controlsParams)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun performBoardScan() {
@@ -199,8 +235,7 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
             }
 
             if (bytes == null) {
-                // Если захват кадра пустой, отправляем тестовый запрос
-                tvMove?.text = "Кадр пуст"
+                tvMove?.text = "Повторите"
                 return@launch
             }
 
@@ -232,8 +267,15 @@ class OverlayService : Service(), TextToSpeech.OnInitListener {
         tts?.stop()
         tts?.shutdown()
 
-        canvasView?.let { windowManager.removeView(it) }
-        controlsView?.let { windowManager.removeView(it) }
+        try {
+            canvasView?.let { windowManager.removeView(it) }
+        } catch (e: Exception) {}
+        canvasView = null
+
+        try {
+            controlsView?.let { windowManager.removeView(it) }
+        } catch (e: Exception) {}
+        controlsView = null
 
         super.onDestroy()
     }

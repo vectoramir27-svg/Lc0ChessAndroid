@@ -26,18 +26,37 @@ class ScreenCaptureManager {
         this.screenWidth = width
         this.screenHeight = height
 
-        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-        virtualDisplay = projection.createVirtualDisplay(
-            "Lc0ScreenCapture",
-            width, height, density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            imageReader?.surface, null, Handler(Looper.getMainLooper())
-        )
+        try {
+            // Android 14+ строго требует регистрации Callback до вызова createVirtualDisplay
+            projection.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    stop()
+                }
+            }, Handler(Looper.getMainLooper()))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+            virtualDisplay = projection.createVirtualDisplay(
+                "Lc0ScreenCapture",
+                width, height, density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                imageReader?.surface, null, Handler(Looper.getMainLooper())
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun captureCroppedBoard(cropRect: Rect): ByteArray? {
         val reader = imageReader ?: return null
-        val image = reader.acquireLatestImage() ?: return null
+        val image = try {
+            reader.acquireLatestImage()
+        } catch (e: Exception) {
+            null
+        } ?: return null
 
         try {
             val planes = image.planes
@@ -68,16 +87,28 @@ class ScreenCaptureManager {
         } catch (e: Exception) {
             return null
         } finally {
-            image.close()
+            try {
+                image.close()
+            } catch (e: Exception) {
+                // ignore
+            }
         }
     }
 
     fun stop() {
-        virtualDisplay?.release()
+        try {
+            virtualDisplay?.release()
+        } catch (e: Exception) {}
         virtualDisplay = null
-        imageReader?.close()
+
+        try {
+            imageReader?.close()
+        } catch (e: Exception) {}
         imageReader = null
-        mediaProjection?.stop()
+
+        try {
+            mediaProjection?.stop()
+        } catch (e: Exception) {}
         mediaProjection = null
     }
 }

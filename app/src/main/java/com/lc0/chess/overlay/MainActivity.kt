@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -26,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGrantOverlay: Button
     private lateinit var tvOverlayGranted: TextView
     private lateinit var btnStartOverlay: Button
+
+    private val prefs by lazy { getSharedPreferences("lc0_chess_settings", Context.MODE_PRIVATE) }
 
     private var screenCaptureResultCode: Int = Activity.RESULT_CANCELED
     private var screenCaptureResultData: Intent? = null
@@ -53,6 +57,23 @@ class MainActivity : AppCompatActivity() {
         tvOverlayGranted = findViewById(R.id.tvOverlayGranted)
         btnStartOverlay = findViewById(R.id.btnStartOverlay)
 
+        // Автоматически загружаем последний сохраненный IP или по умолчанию 192.168.1.109:8765
+        val savedIp = prefs.getString("server_ip", "192.168.1.109:8765") ?: "192.168.1.109:8765"
+        etServerIp.setText(savedIp)
+
+        // Автоматически сохраняем при любом изменении пользователем
+        etServerIp.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                s?.toString()?.trim()?.let {
+                    if (it.isNotEmpty()) {
+                        prefs.edit().putString("server_ip", it).apply()
+                    }
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
         updatePermissionsUI()
 
         btnGrantOverlay.setOnClickListener {
@@ -67,6 +88,8 @@ class MainActivity : AppCompatActivity() {
 
         btnTestConnection.setOnClickListener {
             val host = etServerIp.text.toString().trim()
+            prefs.edit().putString("server_ip", host).apply()
+
             tvServerStatus.text = "● Проверка подключения..."
             tvServerStatus.setTextColor(Color.parseColor("#8C96A8"))
 
@@ -76,7 +99,7 @@ class MainActivity : AppCompatActivity() {
                     tvServerStatus.text = "● Связь с RTX 5060 установлена!"
                     tvServerStatus.setTextColor(Color.parseColor("#00FF88"))
                 } else {
-                    tvServerStatus.text = "● Нет связи с ПК. Проверьте Wi-Fi и запуск сервера."
+                    tvServerStatus.text = "● Нет связи с ПК. Проверьте Wi-Fi и выключите VPN."
                     tvServerStatus.setTextColor(Color.parseColor("#FF4455"))
                 }
             }
@@ -87,6 +110,9 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Сначала разрешите показ поверх других окон!", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
+
+            val host = etServerIp.text.toString().trim()
+            prefs.edit().putString("server_ip", host).apply()
 
             // Запрашиваем захват экрана перед стартом оверлея
             val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -116,19 +142,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun startOverlayService() {
         val host = etServerIp.text.toString().trim()
+        prefs.edit().putString("server_ip", host).apply()
+
         val intent = Intent(this, OverlayService::class.java).apply {
             putExtra(OverlayService.EXTRA_SERVER_URL, host)
             putExtra(OverlayService.EXTRA_RESULT_CODE, screenCaptureResultCode)
             putExtra(OverlayService.EXTRA_RESULT_DATA, screenCaptureResultData)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            Toast.makeText(this, "Оверлей запущен! Откройте Chess.com", Toast.LENGTH_SHORT).show()
+            moveTaskToBack(true)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка запуска: ${e.message}", Toast.LENGTH_LONG).show()
         }
-
-        Toast.makeText(this, "Оверлей запущен! Откройте Chess.com", Toast.LENGTH_SHORT).show()
-        moveTaskToBack(true)
     }
 }
