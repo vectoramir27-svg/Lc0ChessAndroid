@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/llOverlayRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/bg_overlay_pill"
+    android:padding="6dp"
+    android:gravity="center_vertical"
+    android:elevation="12dp">
+
+    <!-- Draggable Handle & Icon -->
+    <TextView
+        android:id="@+id/tvDragHandle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="♟ Lc0"
+        android:textColor="@color/accent_green"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="6dp" />
+
+    <!-- Current Move & Eval -->
+    <TextView
+        android:id="@+id/tvCurrentMove"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Готов"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="6dp" />
+
+    <!-- Color Switcher: White / Black -->
+    <TextView
+        android:id="@+id/btnColorToggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚪"
+        android:textSize="14sp"
+        android:paddingHorizontal="6dp" />
+
+    <!-- Scan Button -->
+    <Button
+        android:id="@+id/btnQuickScan"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:text="⚡ Скан"
+        android:textSize="11sp"
+        android:textColor="#000000"
+        android:textStyle="bold"
+        android:backgroundTint="@color/accent_green"
+        android:paddingHorizontal="10dp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp" />
+
+    <!-- Close Button -->
+    <TextView
+        android:id="@+id/btnCloseOverlay"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:text="✕"
+        android:textColor="@color/accent_red"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginStart="4dp" />
+
+</LinearLayout>
